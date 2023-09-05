@@ -15,4 +15,5 @@ public class GreetingController {
   public String getAnotherGreeting() {
     return "Got greeting";
   }
+
 }
