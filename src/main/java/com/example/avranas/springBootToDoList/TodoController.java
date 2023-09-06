@@ -1,13 +1,8 @@
 package com.example.avranas.springBootToDoList;
 
-import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
-
-import org.apache.catalina.Manager;
-import org.springframework.data.repository.CrudRepository;
-import org.springframework.data.util.ReflectionUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -28,11 +23,7 @@ public class TodoController {
 
   @GetMapping("/todos")
   public Iterable<Todo> findAllTodos() {
-    System.out.println("getting all todos============================");
     Iterable<Todo> todos = this.todoRepository.findAll();
-    for (Todo todo : todos) {
-      todo.print();
-    }
     return todos;
   }
 
@@ -42,23 +33,19 @@ public class TodoController {
     if (gotTodo.isEmpty()) {
       throw new NotFoundException("Todo was not found");
     }
-    // gotTodo.print();
     return gotTodo;
   }
 
   @PostMapping("/todos")
   public Todo addOneTodo(@RequestBody Todo todo) {
-    System.out.println("posting todo===================================");
     final LocalDate newDate = java.time.LocalDate.now();
     todo.setCreatedAt(newDate);
     Todo savedTodo = this.todoRepository.save(todo);
-    savedTodo.print();
     return savedTodo;
   }
 
   @PatchMapping("/todos/{id}")
   public @ResponseBody void updateTodo(@PathVariable Integer id, @RequestBody Map<String, String> fields) {
-    System.out.println("patching todo==================================");
     final Optional<Todo> gotTodo = this.todoRepository.findById(id);
     if (gotTodo.isEmpty()) {
       throw new NotFoundException("Todo was not found");
@@ -77,20 +64,17 @@ public class TodoController {
       Todo todo = gotTodo.get();
       final LocalDate newDate = java.time.LocalDate.now();
       todo.setUpdatedAt(newDate);
-      todo.print();
       this.todoRepository.save(todo);
     }
   }
 
   @DeleteMapping("/todos/{id}")
   public Optional<Todo> deleteTodo(@PathVariable Integer id) {
-    System.out.println("deleting todo==============================");
     final Optional<Todo> gotTodo = this.todoRepository.findById(id);
     if (gotTodo.isEmpty()) {
       throw new NotFoundException("Todo was not found");
     }
     this.todoRepository.deleteById(id);
-    gotTodo.get().print();
     return gotTodo;
   }
 
