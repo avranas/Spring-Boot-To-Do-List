@@ -22,14 +22,10 @@ public class Todo {
   // though it does not necessarily have to be public.
   private Todo() {}
   
-  private static Integer todoCounter = 1;
-
   public Todo(String content) {
     this.content = content;
     this.setCreatedAt(java.time.LocalDate.now());
     this.updatedAt = null;
-    this.id = todoCounter;
-    todoCounter++;
   }
   
   public Integer getId() {
@@ -53,7 +49,7 @@ public class Todo {
   }
 
   public String setUpdatedAt(LocalDate newDate) {
-    return this.createdAt = newDate.toString();
+    return this.updatedAt = newDate.toString();
   }
 
   public String setContent(String newContent) {
