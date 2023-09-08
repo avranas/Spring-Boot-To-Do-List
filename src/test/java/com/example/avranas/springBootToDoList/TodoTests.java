@@ -1,6 +1,7 @@
 package com.example.avranas.springBootToDoList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.Map;
 
@@ -39,23 +40,28 @@ public class TodoTests {
 
   // Assert that everything in a Todo object matches the JSON response
   // except the id. Those should usually be different
-  void assertTodo(Map<?,?> json, Todo todo) {
+  void assertTodo(Map<?, ?> json, Todo todo) {
     assertEquals(todo.getContent(), json.get("content"));
     assertEquals(todo.getCreatedAt(), json.get("createdAt"));
     assertEquals(todo.getUpdatedAt(), json.get("updatedAt"));
   }
 
-  void assertTodo(String response, Todo todo) {
-    Map<?,?> json = gson.fromJson(response, Map.class);
-    assertTodo(json, todo);
-  }
-
   void assertTodos(String response, Todo[] todos) {
-    Map<?,?>[] jsons = gson.fromJson(response, Map[].class);
+    Map<?, ?>[] jsons = gson.fromJson(response, Map[].class);
     assertEquals(jsons.length, todos.length);
     for (int i = 0; i < jsons.length; i++) {
       assertTodo(jsons[i], todos[i]);
     }
+  }
+
+  void assertTodo(Todo todo1, Todo todo2) {
+    assertEquals(todo1.getContent(), todo2.getContent());
+    assertEquals(todo1.getCreatedAt(), todo2.getCreatedAt());
+    assertEquals(todo1.getUpdatedAt(), todo2.getUpdatedAt());
+  }
+
+  Todo makeTodoWithServerResponse(String response) {
+    return new Todo(gson.fromJson(response, Map.class));
   }
 
   @Test
@@ -66,27 +72,55 @@ public class TodoTests {
     assertEquals(result.getResponse().getStatus(), 200);
   }
 
+  // Makes 3 todos in the testing suite
+  // Posts them on the server
+  // Asserts the todos on the server are the same as the ones on the testing suite
   Todo[] postThreeNewTodos() throws Exception {
     final String[] content = { "Take out the trash", "Go to the gym", "Write more tests" };
     Todo[] todos = new Todo[content.length];
     for (int i = 0; i < content.length; i++) {
+      // POST a new todo with local data
       final String str = content[i];
       final JSONObject requestBody = new JSONObject();
       requestBody.put("content", str);
       final RequestBuilder request = MockMvcRequestBuilders.post("/todos")
-        .contentType(MediaType.APPLICATION_JSON)
-        .content(requestBody.toString());
+          .contentType(MediaType.APPLICATION_JSON)
+          .content(requestBody.toString());
       final MvcResult result = mockMvc.perform(request).andReturn();
+      // Make a local todo with local data
+      final Todo localTodo = new Todo(str);
+      final String responseStr = result.getResponse().getContentAsString();
+      // Make a todo from the server response
+      final Todo serverTodo = makeTodoWithServerResponse(responseStr);
+      // Assert that the local todo and server todo have the same data
+      assertTodo(serverTodo, localTodo);
       assertEquals(result.getResponse().getStatus(), 201);
-      final Todo newTodo = new Todo(str);
-      assertTodo(result.getResponse().getContentAsString(), newTodo);
-      todos[i] = newTodo;
+      todos[i] = serverTodo;
     }
     return todos;
   }
 
+  Todo postOneNewTodo() throws Exception {
+    final JSONObject requestBody = new JSONObject();
+    final String oldContent = "This is my new todo";
+    final Todo localTodo = new Todo(oldContent);
+    requestBody.put("content", oldContent);
+    // POST a new todo
+    RequestBuilder request = MockMvcRequestBuilders.post("/todos")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(requestBody.toString());
+    MvcResult result = mockMvc.perform(request).andReturn();
+    final String responseString = result.getResponse().getContentAsString();
+    // Make a todo from the server response
+    final Todo serverTodo = makeTodoWithServerResponse(responseString);
+    assertTodo(serverTodo, localTodo);
+    assertEquals(result.getResponse().getStatus(), 201);
+    return serverTodo;
+  }
+
   @Test
   void itPostsNewTodosAndGetsAll() throws Exception {
+    // POST 3 new todos to the server and return them
     Todo[] todos = postThreeNewTodos();
     final RequestBuilder request = MockMvcRequestBuilders.get("/todos");
     final MvcResult result = mockMvc.perform(request).andReturn();
@@ -96,43 +130,93 @@ public class TodoTests {
 
   @Test
   void itPostsNewTodosAndGetsById() throws Exception {
+    // POST 3 new todos to the server and return them
     Todo[] todos = postThreeNewTodos();
-    final Integer todoId = 2;
-    final RequestBuilder request = MockMvcRequestBuilders.get("/todos/" + todoId);
+    final Todo secondTodo = todos[1];
+    // GET the todo from the server with the ID from the second todo
+    final RequestBuilder request = MockMvcRequestBuilders.get("/todos/" + secondTodo.getId());
     final MvcResult result = mockMvc.perform(request).andReturn();
-    assertTodo(result.getResponse().getContentAsString(), todos[todoId - 1]);
+    final Todo serverTodo = makeTodoWithServerResponse(result.getResponse().getContentAsString());
+    // Assert that response from the server is the same as the second todo
+    assertTodo(secondTodo, serverTodo);
     assertEquals(result.getResponse().getStatus(), 200);
   }
 
   @Test
   void itUpdatesATodo() throws Exception {
-    final JSONObject requestBody = new JSONObject();
-    final String todoContent = "Update this todo";
-    final Todo todo = new Todo(todoContent);
-    requestBody.put("content", todoContent);
-    RequestBuilder request = MockMvcRequestBuilders.post("/todos")
-    .contentType(MediaType.APPLICATION_JSON)
-    .content(requestBody.toString());
-    MvcResult result = mockMvc.perform(request).andReturn();
-    assertEquals(result.getResponse().getStatus(), 201);
-    final String responseString = result.getResponse().getContentAsString();
-    assertTodo(responseString, todo);
-    // Parse the response and get the ID so we can update it
-    Map<?,?> json = gson.fromJson(responseString, Map.class);
-    Integer id = (int) Double.parseDouble(json.get("id").toString());
-    request = MockMvcRequestBuilders.get("/todos/" + id);
-    result = mockMvc.perform(request).andReturn();
-    assertTodo(result.getResponse().getContentAsString(), todo);
-    assertEquals(result.getResponse().getStatus(), 200);
+    Todo serverTodo = postOneNewTodo();
+    final Todo localTodo = serverTodo;
+    final Integer id = serverTodo.getId();
+    // Update localTodo
+    final String oldContent = serverTodo.getContent();
     final String newContent = "Finish writing tests";
-    todo.setContent(newContent);
-    todo.setUpdatedAt(java.time.LocalDate.now());
+    localTodo.setContent(newContent);
+    localTodo.setUpdatedAt(java.time.LocalDate.now());
+    // Update serverTodo
+    final JSONObject requestBody = new JSONObject();
     requestBody.put("content", newContent);
-    request = MockMvcRequestBuilders.patch("/todos/" + id)
-      .contentType(MediaType.APPLICATION_JSON)
-      .content(requestBody.toString());
+    final RequestBuilder request = MockMvcRequestBuilders.patch("/todos/" + id)
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(requestBody.toString());
+    final MvcResult result = mockMvc.perform(request).andReturn();
+    serverTodo = makeTodoWithServerResponse(result.getResponse().getContentAsString());
+    // Assert that both have been updated correctly
+    assertTodo(localTodo, serverTodo);
+    assertNotEquals(serverTodo.getContent(), oldContent);
+    assertEquals(result.getResponse().getStatus(), 200);
+  }
+
+  @Test
+  void itDeletesATodo() throws Exception {
+    final Todo serverTodo = postOneNewTodo();
+    final Todo localTodo = serverTodo;
+    final Integer id = serverTodo.getId();
+    RequestBuilder request = MockMvcRequestBuilders.delete("/todos/" + id);
+    MvcResult result = mockMvc.perform(request).andReturn();
+    final Todo deletedTodo = makeTodoWithServerResponse(result.getResponse().getContentAsString());
+    // Assert that the request was a success and that the
+    // deleted todo was returned by the server
+    assertEquals(result.getResponse().getStatus(), 200);
+    assertTodo(localTodo, deletedTodo);
+    // Try getting the todo with the deleted ID. We should get a 404 error
+    request = MockMvcRequestBuilders.get("/todos/" + deletedTodo.getId());
     result = mockMvc.perform(request).andReturn();
-    assertTodo(result.getResponse().getContentAsString(), todo);
+    assertEquals(result.getResponse().getStatus(), 404);
+  }
+
+  // Sad paths
+  @Test
+  void itGivesA404ErrorIfItCanNotFindTheTodo() throws Exception {
+    RequestBuilder request = MockMvcRequestBuilders.delete("/todos/1");
+    MvcResult result = mockMvc.perform(request).andReturn();
+    assertEquals(result.getResponse().getStatus(), 404);
+    request = MockMvcRequestBuilders.get("/todos/1");
+    result = mockMvc.perform(request).andReturn();
+    assertEquals(result.getResponse().getStatus(), 404);
+    // Patch requires a request body
+    JSONObject requestBody = new JSONObject();
+    requestBody.put("content", "Go to the gym");
+    request = MockMvcRequestBuilders.patch("/todos/1")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(requestBody.toString());
+    result = mockMvc.perform(request).andReturn();
+    assertEquals(result.getResponse().getStatus(), 404);
+  }
+
+  @Test
+  void itGivesA400ErrorIfPatchDoesNotHaveAValidRequestBody() throws Exception {
+    postOneNewTodo();
+    // No request body
+    RequestBuilder request = MockMvcRequestBuilders.patch("/todos/1");
+    MvcResult result = mockMvc.perform(request).andReturn();
+    assertEquals(result.getResponse().getStatus(), 400);
+    // Request body without content property should respond with 200
+    JSONObject requestBody = new JSONObject();
+    requestBody.put("not_content", "Go to the gym");
+    request = MockMvcRequestBuilders.patch("/todos/1")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content(requestBody.toString());
+    result = mockMvc.perform(request).andReturn();
     assertEquals(result.getResponse().getStatus(), 200);
   }
 }

@@ -1,5 +1,7 @@
 package com.example.avranas.springBootToDoList;
+
 import java.time.LocalDate;
+import java.util.Map;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -17,21 +19,45 @@ public class Todo {
   private String content;
   private String createdAt;
   private String updatedAt;
-  
+
   // Hibernate expects entities to have a no-arg constructor,
   // though it does not necessarily have to be public.
-  private Todo() {}
-  
+  private Todo() {
+  }
+
+  public Todo(Map<?, ?> gson) {
+    for (Map.Entry<?, ?> entry : gson.entrySet()) {
+      if (entry.getValue() == null)
+        continue;
+      switch (entry.getKey().toString()) {
+        case "id":
+          this.id = (int) Double.parseDouble(entry.getValue().toString());
+          break;
+        case "content":
+          this.content = entry.getValue().toString();
+          break;
+        case "createdAt":
+          this.createdAt = entry.getValue().toString();
+          break;
+        case "updatedAt":
+          this.updatedAt = entry.getValue().toString();
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
   public Todo(String content) {
     this.content = content;
     this.setCreatedAt(java.time.LocalDate.now());
     this.updatedAt = null;
   }
-  
+
   public Integer getId() {
     return this.id;
   }
-  
+
   public String getContent() {
     return this.content;
   }
@@ -42,6 +68,11 @@ public class Todo {
 
   public String getUpdatedAt() {
     return this.updatedAt;
+  }
+
+  // This should only be used for testing purposes
+  public Integer setId(Integer id) {
+    return this.id = id;
   }
 
   public String setCreatedAt(LocalDate newDate) {

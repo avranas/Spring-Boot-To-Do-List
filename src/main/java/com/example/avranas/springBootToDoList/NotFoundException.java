@@ -11,13 +11,20 @@ public class NotFoundException extends RuntimeException {
 
   public NotFoundException(String message, Throwable cause) {
     super(message, cause);
+    System.out.println("Error:");
+    System.out.println(message);
+    System.out.println(cause);
   }
 
   public NotFoundException(String message) {
     super(message);
+    System.out.println("Error:");
+    System.out.println(message);
   }
 
   public NotFoundException(Throwable cause) {
     super(cause);
+    System.out.println("Error:");
+    System.out.println(cause);
   }
 }
